@@ -4,6 +4,9 @@ pipeline {
     environment {
         IMAGE = 'linux02.local/myapp/flask-demo-1'
         TAG = "build-${BUILD_NUMBER}"
+
+        CHART_REPO = 'linux03.local:3000/admin/flask-demo-1-chart.git'
+        CHART_DIR = 'flask-demo-1-chart'
     }
 
     stages {
@@ -104,12 +107,50 @@ pipeline {
                 }
             }
         }
+
+        stage('Update Helm Chart Repo') {
+            agent {
+                label 'python'
+            }
+
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'gitea-credential',
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_PASS'
+                )]) {
+                    sh '''
+                        set -e
+
+                        rm -rf ${CHART_DIR}
+
+                        git clone http://${GIT_USER}:${GIT_PASS}@${CHART_REPO} ${CHART_DIR}
+
+                        cd ${CHART_DIR}
+
+                        git config user.name "jenkins"
+                        git config user.email "jenkins@local"
+
+                        sed -i "s|^  repository:.*|  repository: ${IMAGE}|" values.yaml
+                        sed -i "s|^  tag:.*|  tag: \\"${TAG}\\"|" values.yaml
+
+                        echo "=== updated values.yaml ==="
+                        cat values.yaml
+
+                        git add values.yaml
+                        git commit -m "Update image tag to ${TAG}" || echo "No changes to commit"
+                        git push origin main
+                    '''
+                }
+            }
+        }
     }
 
     post {
         success {
             echo "镜像已成功推送到 Harbor: ${IMAGE}:${TAG}"
-            echo "后续请手动使用 Helm 部署这个镜像"
+            echo "Helm Chart values.yaml 已更新为 tag: ${TAG}"
+            echo "ArgoCD 可以同步部署了"
         }
         failure {
             echo '流水线失败，请查看日志排查'
