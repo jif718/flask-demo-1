@@ -115,7 +115,7 @@ pipeline {
 
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'gitea-token',
+                    credentialsId: '69e01717-e870-4566-a95c-a5884aafea6a',
                     usernameVariable: 'GIT_USER',
                     passwordVariable: 'GIT_PASS'
                 )]) {
