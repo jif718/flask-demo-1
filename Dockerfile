@@ -1,8 +1,9 @@
-FROM --platform=linux/arm64 linux02.local/library/python:3.12-slim
+# Multi-arch base image from Docker Hub (works on arm64 t4g nodes)
+FROM --platform=linux/arm64 python:3.12-slim
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8080
