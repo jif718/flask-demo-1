@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         ECR_REGISTRY = '445529239852.dkr.ecr.ap-east-1.amazonaws.com'
-        IMAGE_NAME   = 'flask-demo/flask-demo-1'
+        IMAGE_NAME   = 'myapp/flask-demo-1'
         IMAGE        = "${ECR_REGISTRY}/${IMAGE_NAME}"
         TAG          = "build-${BUILD_NUMBER}"
     }
