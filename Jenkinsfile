@@ -2,11 +2,11 @@ pipeline {
     agent none
 
     environment {
-        IMAGE = 'linux02.local/myapp/flask-demo-1'
-        TAG = "build-${BUILD_NUMBER}"
-
-        CHART_REPO = 'linux03.local:3000/admin/flask-demo-1-chart.git'
-        CHART_DIR = 'flask-demo-1-chart'
+        // ECR registry derived from AWS account ID
+        ECR_REGISTRY = '445529239852.dkr.ecr.ap-east-1.amazonaws.com'
+        IMAGE_NAME   = 'flask-demo/flask-demo-1'
+        IMAGE        = "${ECR_REGISTRY}/${IMAGE_NAME}"
+        TAG          = "build-${BUILD_NUMBER}"
     }
 
     stages {
@@ -90,70 +90,71 @@ pipeline {
             }
         }
 
-        stage('Build and Push Image') {
+        stage('Build and Push to ECR') {
             agent {
                 label 'kaniko'
             }
 
             steps {
                 container('kaniko') {
+                    // No --registry-certificate needed: ECR uses public CA bundle
+                    // No docker config needed: Kaniko on EKS auto-detects IRSA via IMDS
+                    //   and exchanges the projected SA token for ECR auth tokens.
                     sh '''
                         /kaniko/executor \
                           --context "${WORKSPACE}" \
                           --dockerfile "${WORKSPACE}/Dockerfile" \
                           --destination "${IMAGE}:${TAG}" \
-                          --registry-certificate=linux02.local=/kaniko/certs/ca.crt
+                          --destination "${IMAGE}:latest" \
+                          --cache=true \
+                          --cache-repo "${ECR_REGISTRY}/${IMAGE_NAME}/cache" \
+                          --verbosity info
                     '''
                 }
             }
         }
 
-        stage('Update Helm Chart Repo') {
-            agent {
-                label 'python'
-            }
-
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'gitea-token',
-                    usernameVariable: 'GIT_USER',
-                    passwordVariable: 'GIT_PASS'
-                )]) {
-                    sh '''
-                        set -e
-
-                        rm -rf ${CHART_DIR}
-
-                        git clone http://${GIT_USER}:${GIT_PASS}@${CHART_REPO} ${CHART_DIR}
-
-                        cd ${CHART_DIR}
-
-                        git config user.name "jenkins"
-                        git config user.email "jenkins@local"
-
-                        sed -i "s|^  repository:.*|  repository: ${IMAGE}|" values.yaml
-                        sed -i "s|^  tag:.*|  tag: \\"${TAG}\\"|" values.yaml
-
-                        echo "=== updated values.yaml ==="
-                        cat values.yaml
-
-                        git add values.yaml
-                        git commit -m "Update image tag to ${TAG}" || echo "No changes to commit"
-                        git push origin main
-                    '''
-                }
-            }
-        }
+        // ----------------------------------------------------------------
+        // GitOps stage commented out — will be enabled after ArgoCD setup.
+        // When ready, replace Gitea with GitHub:
+        //   - credentialsId: 'github-token' (already configured in JCasC)
+        //   - CHART_REPO:    'github.com/jif718/flask-demo-1-chart.git'
+        // ----------------------------------------------------------------
+        // stage('Update Helm Chart Repo') {
+        //     agent {
+        //         label 'python'
+        //     }
+        //     steps {
+        //         withCredentials([usernamePassword(
+        //             credentialsId: 'github-token',
+        //             usernameVariable: 'GIT_USER',
+        //             passwordVariable: 'GIT_PASS'
+        //         )]) {
+        //             sh '''
+        //                 set -e
+        //                 rm -rf flask-demo-1-chart
+        //                 git clone https://${GIT_USER}:${GIT_PASS}@github.com/jif718/flask-demo-1-chart.git
+        //                 cd flask-demo-1-chart
+        //                 git config user.name  "jenkins"
+        //                 git config user.email "jenkins@jif-lab"
+        //                 sed -i "s|^  repository:.*|  repository: ${IMAGE}|" values.yaml
+        //                 sed -i "s|^  tag:.*|  tag: \\\"${TAG}\\\"|"          values.yaml
+        //                 git add values.yaml
+        //                 git commit -m "Update image tag to ${TAG}" || echo "No changes"
+        //                 git push origin main
+        //             '''
+        //         }
+        //     }
+        // }
     }
 
     post {
         success {
-            echo "镜像已成功推送到 Harbor: ${IMAGE}:${TAG}"
-            echo "Helm Chart values.yaml 已更新为 tag: ${TAG}"
-            echo "ArgoCD 可以同步部署了"
+            echo "Image pushed to ECR: ${IMAGE}:${TAG}"
+            echo "Image pushed to ECR: ${IMAGE}:latest"
         }
         failure {
-            echo '流水线失败，请查看日志排查'
+            echo 'Pipeline failed, check logs above'
         }
     }
 }
