@@ -7,7 +7,7 @@ init_metrics(app)
 
 @app.route("/")
 def hello():
-    return "Hello from Flask Demo v1.13\n"
+    return "Hello from Flask Demo v1.14\n"
 
 
 @app.route("/health")
