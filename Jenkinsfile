@@ -119,7 +119,6 @@ PYEOF
                           --context "${WORKSPACE}" \
                           --dockerfile "${WORKSPACE}/Dockerfile" \
                           --destination "${IMAGE}:${TAG}" \
-                          --destination "${IMAGE}:latest" \
                           --cache=true \
                           --cache-repo "${ECR_REGISTRY}/${IMAGE_NAME}/cache" \
                           --verbosity info
@@ -132,7 +131,6 @@ PYEOF
     post {
         success {
             echo "Image pushed to ECR: ${IMAGE}:${TAG}"
-            echo "Image pushed to ECR: ${IMAGE}:latest"
         }
         failure {
             echo 'Pipeline failed, check logs above'
