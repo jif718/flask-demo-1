@@ -5,11 +5,9 @@ pipeline {
         ECR_REGISTRY = '445529239852.dkr.ecr.ap-east-1.amazonaws.com'
         IMAGE_NAME   = 'myapp/flask-demo-1'
         IMAGE        = "${ECR_REGISTRY}/${IMAGE_NAME}"
-        // Timestamp gives monotonic ordering (survives Jenkins build-number reset);
-        // short SHA gives exact code traceability. Format: <UTC timestamp>-<sha>
-        GIT_SHA      = "${sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()}"
-        BUILD_TS     = "${sh(script: 'date -u +%Y%m%d%H%M%S', returnStdout: true).trim()}"
-        TAG          = "${BUILD_TS}-${GIT_SHA}"
+        // TAG is computed at runtime in the 'Resolve Tag' stage below,
+        // because sh() needs a node/workspace context (FilePath) that the
+        // environment{} block does not have.
     }
 
     stages {
@@ -107,6 +105,19 @@ PYEOF
                             fi
                         '''
                     }
+                }
+            }
+        }
+
+        stage('Resolve Tag') {
+            steps {
+                script {
+                    // Timestamp = monotonic ordering (survives build-number reset);
+                    // short SHA = exact code traceability. Format: <UTC ts>-<sha>
+                    def gitSha  = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
+                    def buildTs = sh(script: 'date -u +%Y%m%d%H%M%S', returnStdout: true).trim()
+                    env.TAG = "${buildTs}-${gitSha}"
+                    echo "Image tag resolved: ${env.TAG}"
                 }
             }
         }
