@@ -112,10 +112,9 @@ PYEOF
         stage('Resolve Tag') {
             steps {
                 script {
-                    // Timestamp = monotonic ordering (survives build-number reset);
-                    // short SHA = exact code traceability. Format: <UTC ts>-<sha>
-                    def gitSha  = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
-                    def buildTs = sh(script: 'date -u +%Y%m%d%H%M%S', returnStdout: true).trim()
+                    def gitSha  = (env.GIT_COMMIT ?: 'unknown').take(7)
+                    def buildTs = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC)
+                                    .format(java.time.format.DateTimeFormatter.ofPattern('yyyyMMddHHmmss'))
                     env.TAG = "${buildTs}-${gitSha}"
                     echo "Image tag resolved: ${env.TAG}"
                 }
