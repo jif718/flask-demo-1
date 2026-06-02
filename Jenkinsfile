@@ -5,7 +5,11 @@ pipeline {
         ECR_REGISTRY = '445529239852.dkr.ecr.ap-east-1.amazonaws.com'
         IMAGE_NAME   = 'myapp/flask-demo-1'
         IMAGE        = "${ECR_REGISTRY}/${IMAGE_NAME}"
-        TAG          = "build-${BUILD_NUMBER}"
+        // Timestamp gives monotonic ordering (survives Jenkins build-number reset);
+        // short SHA gives exact code traceability. Format: <UTC timestamp>-<sha>
+        GIT_SHA      = "${sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()}"
+        BUILD_TS     = "${sh(script: 'date -u +%Y%m%d%H%M%S', returnStdout: true).trim()}"
+        TAG          = "${BUILD_TS}-${GIT_SHA}"
     }
 
     stages {
