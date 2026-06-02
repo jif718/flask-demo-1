@@ -68,44 +68,10 @@ pipeline {
                     }
                 }
 
-                stage('Run Flask App and Health Check') {
-                    steps {
-                        container('python') {
-                            sh '''
-                                . .venv/bin/activate
-
-                                nohup python app.py > flask.log 2>&1 &
-                                echo $! > flask.pid
-
-                                sleep 5
-
-                                echo "=== flask.log ==="
-                                cat flask.log || true
-
-                                echo "=== health check via python urllib ==="
-                                python <<'PYEOF'
-import urllib.request
-resp = urllib.request.urlopen('http://127.0.0.1:8080/').read().decode()
-print(resp)
-assert 'Hello from Flask Demo' in resp, 'health check failed'
-print('health check OK')
-PYEOF
-                            '''
-                        }
-                    }
-                }
-            }
-
-            post {
-                always {
-                    container('python') {
-                        sh '''
-                            if [ -f flask.pid ]; then
-                                kill $(cat flask.pid) || true
-                            fi
-                        '''
-                    }
-                }
+                // Runtime health checking is delegated to Kubernetes
+                // readinessProbe/livenessProbe (see flask-demo-1-chart:
+                // readinessProbe -> GET /, livenessProbe -> GET /health),
+                // so the CI pipeline no longer boots the app to probe it.
             }
         }
 
