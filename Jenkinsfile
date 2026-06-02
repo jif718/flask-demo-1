@@ -113,8 +113,7 @@ PYEOF
             steps {
                 script {
                     def gitSha  = (env.GIT_COMMIT ?: 'unknown').take(7)
-                    def buildTs = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC)
-                                    .format(java.time.format.DateTimeFormatter.ofPattern('yyyyMMddHHmmss'))
+                    def buildTs = new Date().format('yyyyMMddHHmmss', TimeZone.getTimeZone('UTC'))
                     env.TAG = "${buildTs}-${gitSha}"
                     echo "Image tag resolved: ${env.TAG}"
                 }
