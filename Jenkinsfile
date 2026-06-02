@@ -109,23 +109,20 @@ PYEOF
             }
         }
 
-        stage('Resolve Tag') {
-            steps {
-                script {
-                    def gitSha  = (env.GIT_COMMIT ?: 'unknown').take(7)
-                    def buildTs = new Date().format('yyyyMMddHHmmss', TimeZone.getTimeZone('UTC'))
-                    env.TAG = "${buildTs}-${gitSha}"
-                    echo "Image tag resolved: ${env.TAG}"
-                }
-            }
-        }
-
         stage('Build and Push to ECR') {
             agent {
                 label 'kaniko'
             }
-
             steps {
+                script {
+                    // Capture the checked-out commit SHA; combine with a UTC
+                    // timestamp for a monotonic, traceable image tag.
+                    def scmVars = checkout scm
+                    def gitSha  = scmVars.GIT_COMMIT.take(7)
+                    def buildTs = new Date().format('yyyyMMddHHmmss', TimeZone.getTimeZone('UTC'))
+                    env.TAG = "${buildTs}-${gitSha}"
+                    echo "Image tag resolved: ${env.TAG}"
+                }
                 container('kaniko') {
                     sh '''
                         /kaniko/executor \
